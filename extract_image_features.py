@@ -2,6 +2,7 @@ from skimage import transform, io
 import csv
 import os, pickle
 import tensorflow as tf
+import numpy as np
 from cnn_classifier import *
 
 
@@ -59,7 +60,7 @@ model = cnnclassifier.train_model()
 
 # Define the input function for training
 input_fn = tf.estimator.inputs.numpy_input_fn(
-    x={'images': train_image_features}, y=train_image_labels,
+    x={'images': np.array(train_image_features)}, y=train_image_labels,
     batch_size=100, num_epochs=None, shuffle=True)
 # Train the Model
 model.train(input_fn, steps=2000)

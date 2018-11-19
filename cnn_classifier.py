@@ -38,6 +38,7 @@ class CNNClassifier:
 
 
 	def __train_model_fn(self,image_features,image_labels,mode):
+		print("training....")
 		img_features = tf.reshape(image_features,[-1,self.vector_size,self.vector_size,1])
 
 		self.define_model_net(img_features)
@@ -70,6 +71,7 @@ class CNNClassifier:
 
 
 	def train_model(self):
+		print("train the model")
 		return tf.estimator.Estimator(
 			model_fn = lambda features, labels, mode: self.__train_model_fn(features, labels, mode))
 
