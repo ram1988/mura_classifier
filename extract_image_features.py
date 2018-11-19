@@ -1,8 +1,9 @@
 from skimage import transform, io
 import csv
 import os, pickle
+import tensorflow as tf
+from cnn_classifier import *
 
-#from cnn_classifier import *
 
 # Feature extractor
 def extract_features(image_path, vector_size=200):
@@ -40,24 +41,38 @@ def prepare_image_set(path,file_name):
 #train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
 #validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
 
-
+train_image_features = []
+train_image_labels = []
 tot = 0
 for i in range(1,9):
-    obj = pickle.load(open("train_dataset"+str(i)+".pkl", 'rb'))
-    tot = tot+len(obj)
-print(tot)
-obj = pickle.load(open("validation_dataset2.pkl", 'rb'))
-print(len(obj))
-
-print(len(train_dataset))
-print(len(validation_dataset))
+    train_records = pickle.load(open("train_dataset"+str(i)+".pkl", 'rb'))
+    for record in train_records:
+        train_image_features.append(record[0])
+        train_image_labels.append(record[1])
 
 
+#https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
+vector_size=200
+num_classes = 2
+cnnclassifier = CNNClassifier(vector_size,num_classes)
+model = tf.estimator.Estimator(cnnclassifier.train_classifier)
+
+# Define the input function for training
+input_fn = tf.estimator.inputs.numpy_input_fn(
+    x={'images': train_image_features}, y=train_image_labels,
+    batch_size=100, num_epochs=None, shuffle=True)
+# Train the Model
+model.train(input_fn, steps=2000)
 
 '''
-vector_size=200
-num_classes = 7
-cnnclassifier = CNNClassifier(vector_size,3,num_classes)
-cnnclassifier.create_features()
-cnnclassifier.train_classifier()
+# Evaluate the Model
+# Define the input function for evaluating
+input_fn = tf.estimator.inputs.numpy_input_fn(
+    x={'images': mnist.test.images}, y=mnist.test.labels,
+    batch_size=batch_size, shuffle=False)
+# Use the Estimator 'evaluate' method
+e = model.evaluate(input_fn)
+
+
+
 '''

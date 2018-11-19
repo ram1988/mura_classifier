@@ -2,20 +2,15 @@ import tensorflow as tf
 
 class CNNClassifier:
 
-	def __init__(self,img_size,num_channels,img_classes):
-		self.img_size = img_size
-		self.num_channels = num_channels
+	def __init__(self,vector_size, img_classes):
+		self.vector_size = vector_size
 		self.img_classes = img_classes
 
-	def create_features(self):
-		self.image_features = tf.placeholder(tf.float32, shape = [-1,self.img_size,self.img_size], name="image features")
-		self.image_labels = tf.placeholder(tf.float32, shape = [-1,self.img_classes], name="image classes")
 
-
-	def train_classifier(self):
+	def define_model_net(self,img_features):
 		# Convolutional Layer #1
 		conv1 = tf.layers.conv2d(
-			inputs=self.image_features,
+			inputs=img_features,
 			filters=32,
 			kernel_size=[5, 5],
 			padding="same",
@@ -36,13 +31,19 @@ class CNNClassifier:
 		pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
 		dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
 		dropout = tf.layers.dropout(
-			inputs=dense, rate=0.4, training=tf.estimator.ModeKeys.TRAIN)
+			inputs=dense, rate=0.4, training=True)
 
 		# Logits Layer
 		self.logits = tf.layers.dense(inputs=dropout, units=self.img_classes)
 
+
+	def train_model(self,image_features,image_labels):
+		img_features = tf.reshape(image_features,[-1,self.vector_size,self.vector_size,1])
+
+		self.define_model_net(img_features)
+
 		# Calculate Loss (for both TRAIN and EVAL modes)
-		self.loss = tf.losses.sparse_softmax_cross_entropy(labels=self.image_labels, logits=self.logits)
+		self.loss = tf.losses.softmax_cross_entropy(labels=image_labels, logits=self.logits)
 
 		# Configure the Training Op (for TRAIN mode)
 		optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
