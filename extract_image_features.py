@@ -48,7 +48,7 @@ tot = 0
 for i in range(1,9):
     train_records = pickle.load(open("train_dataset"+str(i)+".pkl", 'rb'))
     for record in train_records:
-        train_image_features.append(record[0])
+        train_image_features.append(np.array(record[0]))
         train_image_labels.append(record[1])
 
 
@@ -60,7 +60,7 @@ model = cnnclassifier.train_model()
 
 # Define the input function for training
 input_fn = tf.estimator.inputs.numpy_input_fn(
-    x={'images': np.array(train_image_features)}, y=train_image_labels,
+    x={'images': np.array(train_image_features)}, y=np.array(train_image_labels),
     batch_size=100, num_epochs=None, shuffle=True)
 # Train the Model
 model.train(input_fn, steps=2000)

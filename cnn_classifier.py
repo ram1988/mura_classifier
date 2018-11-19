@@ -39,6 +39,7 @@ class CNNClassifier:
 
 	def __train_model_fn(self,image_features,image_labels,mode):
 		print("training....")
+		image_features = image_features["images"]
 		img_features = tf.reshape(image_features,[-1,self.vector_size,self.vector_size,1])
 
 		self.define_model_net(img_features)
