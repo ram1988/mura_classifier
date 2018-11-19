@@ -55,7 +55,7 @@ for i in range(1,9):
 vector_size=200
 num_classes = 2
 cnnclassifier = CNNClassifier(vector_size,num_classes)
-model = tf.estimator.Estimator(cnnclassifier.train_classifier)
+model = cnnclassifier.train_model()
 
 # Define the input function for training
 input_fn = tf.estimator.inputs.numpy_input_fn(

@@ -37,7 +37,7 @@ class CNNClassifier:
 		self.logits = tf.layers.dense(inputs=dropout, units=self.img_classes)
 
 
-	def train_model(self,image_features,image_labels):
+	def __train_model_fn(self,image_features,image_labels,mode):
 		img_features = tf.reshape(image_features,[-1,self.vector_size,self.vector_size,1])
 
 		self.define_model_net(img_features)
@@ -53,7 +53,7 @@ class CNNClassifier:
 		return tf.estimator.EstimatorSpec(mode=tf.estimator.ModeKeys.TRAIN, loss=self.loss, train_op=train_op)
 
 
-	def evaluate_model(self):
+	def __eval_model_fn(self,image_features,image_labels,mode):
 		# Add evaluation metrics (for EVAL mode)
 		self.predictions = {
 			# Generate predictions (for PREDICT and EVAL mode)
@@ -67,6 +67,15 @@ class CNNClassifier:
 				labels=self.img_classes, predictions=self.predictions["classes"])}
 		return tf.estimator.EstimatorSpec(
 			mode=tf.estimator.ModeKeys.EVAL, loss=self.loss, eval_metric_ops=eval_metric_ops)
+
+
+	def train_model(self):
+		return tf.estimator.Estimator(
+			model_fn = lambda features, labels, mode: self.__train_model_fn(features, labels, mode))
+
+	def evaluate_model(self):
+		return tf.estimator.Estimator(
+			model_fn=lambda features, labels, mode: self.__eval_model_fn(features, labels, mode))
 
 
 	def predict_image(self):
