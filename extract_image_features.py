@@ -12,6 +12,11 @@ def extract_features(image_path, vector_size=200):
     image = transform.resize(image,(vector_size,vector_size),mode='symmetric',preserve_range=True)
     return image
 
+def indices_to_one_hot(data, nb_classes=2):
+    """Convert an iterable of indices to one-hot encoded labels."""
+    targets = np.array(data).reshape(-1)
+    return np.eye(nb_classes)[targets]
+
 def prepare_image_set(path,file_name):
 
     with open(path) as train_labels:
@@ -49,14 +54,20 @@ for i in range(1,9):
     train_records = pickle.load(open("train_dataset"+str(i)+".pkl", 'rb'))
     for record in train_records:
         train_image_features.append(np.array(record[0]))
-        train_image_labels.append(record[1])
+        train_image_labels.append(int(record[1]))
 
+
+train_image_labels = indices_to_one_hot(train_image_labels)
+print(train_image_labels[0])
 
 #https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
 vector_size=200
 num_classes = 2
 cnnclassifier = CNNClassifier(vector_size,num_classes)
 model = cnnclassifier.train_model()
+
+train_image_features = train_image_features[0:1000]
+train_image_labels = train_image_labels[0:1000]
 
 # Define the input function for training
 input_fn = tf.estimator.inputs.numpy_input_fn(
