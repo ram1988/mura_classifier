@@ -7,7 +7,7 @@ from cnn_classifier import *
 
 
 # Feature extractor
-def extract_features(image_path, vector_size=200):
+def extract_features(image_path, vector_size=75):
     image = io.imread(image_path, as_gray=True)
     image = transform.resize(image,(vector_size,vector_size),mode='symmetric',preserve_range=True)
     return image
@@ -43,9 +43,10 @@ def prepare_image_set(path,file_name):
 
     return image_train_labels
 
-
-#train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
-#validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
+'''
+train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
+validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
+'''
 
 train_image_features = []
 train_image_labels = []
@@ -61,13 +62,13 @@ train_image_labels = indices_to_one_hot(train_image_labels)
 print(train_image_labels[0])
 
 #https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
-vector_size=200
+vector_size=75
 num_classes = 2
 cnnclassifier = CNNClassifier(vector_size,num_classes)
 model = cnnclassifier.train_model()
 
-train_image_features = train_image_features[0:1000]
-train_image_labels = train_image_labels[0:1000]
+train_image_features = train_image_features[0:2000]
+train_image_labels = train_image_labels[0:2000]
 
 # Define the input function for training
 input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -75,6 +76,7 @@ input_fn = tf.estimator.inputs.numpy_input_fn(
     batch_size=100, num_epochs=None, shuffle=True)
 # Train the Model
 model.train(input_fn, steps=2000)
+
 
 '''
 # Evaluate the Model

@@ -27,8 +27,11 @@ class CNNClassifier:
 			activation=tf.nn.relu)
 		pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
 
+		print("train shape....")
+		print(pool2.shape)
+
 		# Dense Layer
-		pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
+		pool2_flat = tf.reshape(pool2, [-1, 37 * 37 * 64])
 		dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
 		dropout = tf.layers.dropout(
 			inputs=dense, rate=0.4, training=True)
@@ -42,10 +45,12 @@ class CNNClassifier:
 		image_features = image_features["images"]
 		img_features = tf.reshape(image_features,[-1,self.vector_size,self.vector_size,1])
 
+		print("train model fn...")
+
 		self.define_model_net(img_features)
 
 		# Calculate Loss (for both TRAIN and EVAL modes)
-		self.loss = tf.losses.softmax_cross_entropy(labels=image_labels, logits=self.logits)
+		self.loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=self.logits)
 
 		# Configure the Training Op (for TRAIN mode)
 		optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
