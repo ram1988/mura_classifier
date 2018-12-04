@@ -11,8 +11,8 @@ class CNNClassifier:
 		# Convolutional Layer #1
 		conv1 = tf.layers.conv2d(
 			inputs=img_features,
-			filters=32,
-			kernel_size=[5, 5],
+			filters=5,
+			kernel_size=[3, 3],
 			padding="same",
 			activation=tf.nn.relu)
 		# Pooling Layer #1
@@ -21,8 +21,8 @@ class CNNClassifier:
 		# Convolutional Layer #2 and Pooling Layer #2
 		conv2 = tf.layers.conv2d(
 			inputs=pool1,
-			filters=64,
-			kernel_size=[5, 5],
+			filters=10,
+			kernel_size=[3, 3],
 			padding="same",
 			activation=tf.nn.relu)
 		pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
@@ -31,7 +31,7 @@ class CNNClassifier:
 		print(pool2.shape)
 
 		# Dense Layer
-		pool2_flat = tf.reshape(pool2, [-1, 37 * 37 * 64])
+		pool2_flat = tf.reshape(pool2, [-1, 37 * 37 * 10])
 		dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
 		dropout = tf.layers.dropout(
 			inputs=dense, rate=0.4, training=True)

@@ -67,8 +67,8 @@ num_classes = 2
 cnnclassifier = CNNClassifier(vector_size,num_classes)
 model = cnnclassifier.train_model()
 
-train_image_features = train_image_features[0:2000]
-train_image_labels = train_image_labels[0:2000]
+train_image_features = train_image_features[0:10000]
+train_image_labels = train_image_labels[0:10000]
 
 # Define the input function for training
 input_fn = tf.estimator.inputs.numpy_input_fn(
