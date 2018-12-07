@@ -43,11 +43,19 @@ def prepare_image_set(path,file_name):
 
     return image_train_labels
 
+def serving_input_rvr_fn():
+    serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[None], name='input_tensors')
+    receiver_tensors = {"predictor_inputs": serialized_tf_example}
+    feature_spec ={"images": tf.FixedLenFeature([75,75], tf.float32)}
+    features = tf.parse_example(serialized_tf_example, feature_spec)
+    return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
+
+
 '''
 train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
 validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
 '''
-
+print("extract.......--->")
 train_image_features = []
 train_image_labels = []
 tot = 0
@@ -67,8 +75,12 @@ num_classes = 2
 cnnclassifier = CNNClassifier(vector_size,num_classes)
 model = cnnclassifier.train_model()
 
-train_image_features = train_image_features[0:10000]
-train_image_labels = train_image_labels[0:10000]
+train_image_features = train_image_features[0:100]
+train_image_labels = train_image_labels[0:100]
+
+print(train_image_features[0].shape)
+print(len(train_image_features))
+print(len(train_image_labels))
 
 # Define the input function for training
 input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -76,6 +88,7 @@ input_fn = tf.estimator.inputs.numpy_input_fn(
     batch_size=100, num_epochs=None, shuffle=True)
 # Train the Model
 model.train(input_fn, steps=2000)
+#model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
 
 
 '''
