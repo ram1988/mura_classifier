@@ -44,8 +44,8 @@ class CNNClassifier:
 	def __train_model_fn(self,image_features,image_labels,mode):
 		print("training....")
 		print(image_labels)
-		print(image_labels.shape)
 		image_features = image_features["images"]
+		image_labels = tf.cast(image_labels, tf.float32)
 		img_features = tf.reshape(image_features,[-1,self.vector_size,self.vector_size,1])
 		print(image_features.shape)
 
@@ -57,6 +57,7 @@ class CNNClassifier:
 
 
 		# Calculate Loss (for both TRAIN and EVAL modes)
+		print(image_labels)
 		self.loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=self.logits)
 
 		# Configure the Training Op (for TRAIN mode)

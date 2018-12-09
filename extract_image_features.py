@@ -72,6 +72,7 @@ print(train_image_labels[0])
 #https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
 vector_size=75
 num_classes = 2
+batch_size = 100
 cnnclassifier = CNNClassifier(vector_size,num_classes)
 model = cnnclassifier.train_model()
 
@@ -82,12 +83,13 @@ print(train_image_features[0].shape)
 print(len(train_image_features))
 print(len(train_image_labels))
 
+steps = (len(train_image_features)/batch_size)-1
 # Define the input function for training
 input_fn = tf.estimator.inputs.numpy_input_fn(
     x={'images': np.array(train_image_features)}, y=np.array(train_image_labels),
     batch_size=100, num_epochs=None, shuffle=True)
 # Train the Model
-model.train(input_fn, steps=2000)
+model.train(input_fn,steps = steps if steps>0  else None)
 model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
 
 
