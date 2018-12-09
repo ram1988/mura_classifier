@@ -9,6 +9,7 @@ class CNNClassifier:
 
 	def define_model_net(self,img_features):
 		# Convolutional Layer #1
+		img_features = tf.cast(img_features, tf.float32)
 		conv1 = tf.layers.conv2d(
 			inputs=img_features,
 			filters=5,
@@ -53,7 +54,6 @@ class CNNClassifier:
 		self.define_model_net(img_features)
 		print("logit shape..")
 		print(self.logits.shape)
-		print(image_labels.shape)
 
 
 		# Calculate Loss (for both TRAIN and EVAL modes)
