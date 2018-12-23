@@ -32,74 +32,72 @@ class CNNClassifier:
 		print(pool2.shape)
 
 		# Dense Layer
-		pool2_flat = tf.reshape(pool2, [-1, 37 * 37 * 10])
+		pool2_flat = tf.reshape(pool2, [-1, 24 * 24 * 10])
 		dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
 		dropout = tf.layers.dropout(
 			inputs=dense, rate=0.4, training=True)
 
 		# Logits Layer
-		self.logits = tf.layers.dense(inputs=dropout, units=self.img_classes)
+		return tf.layers.dense(inputs=dropout, units=self.img_classes)
 
 
-	def __train_model_fn(self,image_features,image_labels,mode):
+
+	def __model_fn(self,features, labels, mode, params):
+		image_features = features["images"]
+		img_features = tf.reshape(image_features, [-1, self.vector_size, self.vector_size, 1])
+		logits = self.define_model_net(img_features)
+
+		if mode == tf.estimator.ModeKeys.TRAIN:
+			return self.__train_model_fn(labels, mode, params, logits)
+		elif mode == tf.estimator.ModeKeys.EVAL:
+			return self.__eval_model_fn(logits)
+		else:
+			return self.__predict_model_fn(logits)
+
+	def __train_model_fn(self,image_labels,mode,params,logits):
+		print(mode)
 		print("training....")
-		print(image_labels)
-		image_features = image_features["images"]
-		image_labels = tf.cast(image_labels, tf.float32)
-		img_features = tf.reshape(image_features,[-1,self.vector_size,self.vector_size,1])
-		print(image_features.shape)
-
-		print("train model fn...")
-
-		self.define_model_net(img_features)
-		print("logit shape..")
-		print(self.logits.shape)
-
-
-		# Calculate Loss (for both TRAIN and EVAL modes)
-		print(image_labels)
-		self.loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=self.logits)
-
+		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
 		# Configure the Training Op (for TRAIN mode)
 		optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
 		train_op = optimizer.minimize(
-			loss=self.loss,
-			global_step=tf.train.get_global_step())
-		return tf.estimator.EstimatorSpec(mode=tf.estimator.ModeKeys.TRAIN, loss=self.loss, train_op=train_op)
+				loss=loss,
+				global_step=tf.train.get_or_create_global_step())
+		return tf.estimator.EstimatorSpec(mode=tf.estimator.ModeKeys.TRAIN, loss=loss, train_op=train_op)
 
 
-	def __eval_model_fn(self,image_features,image_labels,mode):
+	def __eval_model_fn(self,image_labels,logits):
+		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
 		# Add evaluation metrics (for EVAL mode)
 		self.predictions = {
 			# Generate predictions (for PREDICT and EVAL mode)
-			"classes": tf.argmax(input=self.logits, axis=1),
+			"classes": tf.argmax(input=logits, axis=1),
 			# Add `softmax_tensor` to the graph. It is used for PREDICT and by the
 			# `logging_hook`.
-			"probabilities": tf.nn.softmax(self.logits, name="softmax_tensor")
+			"probabilities": tf.nn.softmax(logits, name="softmax_tensor")
 		}
 		eval_metric_ops = {
-			"accuracy": tf.metrics.accuracy(
-				labels=self.img_classes, predictions=self.predictions["classes"])}
+				"accuracy": tf.metrics.accuracy(
+					labels=self.img_classes, predictions=self.predictions["classes"])}
 		return tf.estimator.EstimatorSpec(
-			mode=tf.estimator.ModeKeys.EVAL, loss=self.loss, eval_metric_ops=eval_metric_ops)
+				mode=tf.estimator.ModeKeys.EVAL, loss=loss, eval_metric_ops=eval_metric_ops)
 
-
-	def train_model(self):
-		print("train the model")
-		return tf.estimator.Estimator(
-			model_fn = lambda features, labels, mode: self.__train_model_fn(features, labels, mode))
-
-	def evaluate_model(self):
-		return tf.estimator.Estimator(
-			model_fn=lambda features, labels, mode: self.__eval_model_fn(features, labels, mode))
-
-
-	def predict_image(self):
+	def __predict_model_fn(self,logits):
+		print("PRED....")
+		print(logits)
 		predictions = {
-			# Generate predictions (for PREDICT and EVAL mode)
-			"classes": tf.argmax(input=self.logits, axis=1),
-			# Add `softmax_tensor` to the graph. It is used for PREDICT and by the
-			# `logging_hook`.
-			"probabilities": tf.nn.softmax(self.logits, name="softmax_tensor")
-		}
-		tf.estimator.EstimatorSpec(mode=tf.estimator.ModeKeys.PREDICT, predictions=predictions)
+				"classes": tf.argmax(logits, axis=1),
+				"probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+			}
+		return tf.estimator.EstimatorSpec(mode=tf.estimator.ModeKeys.PREDICT,
+										  predictions=predictions,
+										  export_outputs={
+											  'classify': tf.estimator.export.PredictOutput(predictions)
+										  })
+
+
+	def get_classifier_model(self):
+		print("get the model...")
+		return tf.estimator.Estimator(
+			model_fn = lambda features, labels, mode, params: self.__model_fn(features, labels, mode, params), model_dir="/tmp/cnn_data")
+

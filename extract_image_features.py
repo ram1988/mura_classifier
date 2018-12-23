@@ -7,7 +7,7 @@ from cnn_classifier import *
 
 
 # Feature extractor
-def extract_features(image_path, vector_size=75):
+def extract_features(image_path, vector_size=50):
     image = io.imread(image_path, as_gray=True)
     image = transform.resize(image,(vector_size,vector_size),mode='symmetric',preserve_range=True)
     return image
@@ -39,22 +39,22 @@ def prepare_image_set(path,file_name):
                     batch_num = batch_num+1
                     image_train_labels = []
 
-        pickle.dump(image_train_labels, open(file_name + str(batch_num+1) + ".pkl", 'wb'))
+        pickle.dump(image_train_labels, open(file_name + str(batch_num) + ".pkl", 'wb'))
 
     return image_train_labels
 
 def serving_input_rvr_fn():
     serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[100], name='input_tensors')
     receiver_tensors = {"predictor_inputs": serialized_tf_example}
-    feature_spec ={"images": tf.FixedLenFeature([75,75], tf.float32)}
+    feature_spec ={"images": tf.FixedLenFeature([50,50], tf.float32)}
     features = tf.parse_example(serialized_tf_example, feature_spec)
     return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
 
 
-'''
-train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
-validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
-'''
+
+#train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
+#validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
+
 print("extract.......--->")
 train_image_features = []
 train_image_labels = []
@@ -70,11 +70,11 @@ train_image_labels = indices_to_one_hot(train_image_labels)
 print(train_image_labels[0])
 
 #https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
-vector_size=75
+vector_size=50
 num_classes = 2
 batch_size = 100
 cnnclassifier = CNNClassifier(vector_size,num_classes)
-model = cnnclassifier.train_model()
+model = cnnclassifier.get_classifier_model()
 
 train_image_features = train_image_features[0:100]
 train_image_labels = train_image_labels[0:100]
@@ -89,8 +89,9 @@ input_fn = tf.estimator.inputs.numpy_input_fn(
     x={'images': np.array(train_image_features)}, y=np.array(train_image_labels),
     batch_size=100, num_epochs=None, shuffle=True)
 # Train the Model
-model.train(input_fn,steps = steps if steps>0  else None)
+model.train(input_fn,steps = steps if steps>0  else 1)
 model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
+
 
 
 '''
