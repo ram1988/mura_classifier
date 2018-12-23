@@ -1,113 +1,102 @@
-from skimage import transform, io
-import csv
-import os, pickle
 import tensorflow as tf
-import numpy as np
-from cnn_classifier import *
 
-vector_size=200
-# Feature extractor
-def extract_features(image_path, vector_size=200):
-    image = io.imread(image_path, as_gray=True)
-    image = transform.resize(image,(vector_size,vector_size),mode='symmetric',preserve_range=True)
-    return image
+class CNNClassifier:
 
-def indices_to_one_hot(data, nb_classes=2):
-    """Convert an iterable of indices to one-hot encoded labels."""
-    targets = np.array(data).reshape(-1)
-    return np.eye(nb_classes)[targets]
+	def __init__(self,vector_size, img_classes):
+		self.vector_size = vector_size
+		self.img_classes = img_classes
 
-def prepare_image_set(path,file_name):
 
-    with open(path) as train_labels:
-        csv_reader = csv.reader(train_labels)
-        i = 0
-        batch_num = 1
-        image_train_labels = []
-        for row in csv_reader:
-            image_files = os.listdir(row[0])
-            label = row[1]
-            for image in image_files:
-                image_file = row[0]+image
-                image_features = extract_features(image_file)
-                image_train_labels.append((image_features,label))
-                i = i+1
-                print(i)
-                if len(image_train_labels) == 5000:
-                    print("written")
-                    pickle.dump(image_train_labels, open(file_name+str(batch_num)+".pkl", 'wb'))
-                    batch_num = batch_num+1
-                    image_train_labels = []
+	def define_model_net(self,img_features):
+		# Convolutional Layer #1
+		img_features = tf.cast(img_features, tf.float32)
+		conv1 = tf.layers.conv2d(
+			inputs=img_features,
+			filters=5,
+			kernel_size=[3, 3],
+			padding="same",
+			activation=tf.nn.relu)
+		# Pooling Layer #1
+		pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=1)
 
-        pickle.dump(image_train_labels, open(file_name + str(batch_num) + ".pkl", 'wb'))
+		# Convolutional Layer #2 and Pooling Layer #2
+		conv2 = tf.layers.conv2d(
+			inputs=pool1,
+			filters=10,
+			kernel_size=[3, 3],
+			padding="same",
+			activation=tf.nn.relu)
+		pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
 
-    return image_train_labels
+		print("train shape....")
+		print(pool2.shape)
 
-def serving_input_rvr_fn():
-    serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[100], name='input_tensors')
-    receiver_tensors = {"predictor_inputs": serialized_tf_example}
-    feature_spec ={"images": tf.FixedLenFeature([vector_size,vector_size], tf.float32)}
-    features = tf.parse_example(serialized_tf_example, feature_spec)
-    return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
+		# Dense Layer
+		pool2_flat = tf.reshape(pool2, [-1, 99 * 99 * 10])
+		dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
+		dropout = tf.layers.dropout(
+			inputs=dense, rate=0.4, training=True)
+
+		# Logits Layer
+		return tf.layers.dense(inputs=dropout, units=self.img_classes)
 
 
 
-#train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
-#validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
-print("extract.......--->")
-train_image_features = []
-train_image_labels = []
-tot = 0
-for i in range(1,9):
-    train_records = pickle.load(open("train_dataset"+str(i)+".pkl", 'rb'))
-    for record in train_records:
-        train_image_features.append(np.array(record[0]))
-        train_image_labels.append(int(record[1]))
+	def __model_fn(self,features, labels, mode, params):
+		image_features = features["images"]
+		img_features = tf.reshape(image_features, [-1, self.vector_size, self.vector_size, 1])
+		logits = self.define_model_net(img_features)
+
+		if mode == tf.estimator.ModeKeys.TRAIN:
+			return self.__train_model_fn(labels, mode, params, logits)
+		elif mode == tf.estimator.ModeKeys.EVAL:
+			return self.__eval_model_fn(logits)
+		else:
+			return self.__predict_model_fn(logits)
+
+	def __train_model_fn(self,image_labels,mode,params,logits):
+		print(mode)
+		print("training....")
+		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
+		# Configure the Training Op (for TRAIN mode)
+		optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+		train_op = optimizer.minimize(
+				loss=loss,
+				global_step=tf.train.get_or_create_global_step())
+		return tf.estimator.EstimatorSpec(mode=tf.estimator.ModeKeys.TRAIN, loss=loss, train_op=train_op)
 
 
-train_image_labels = indices_to_one_hot(train_image_labels)
-print(train_image_labels[0])
+	def __eval_model_fn(self,image_labels,logits):
+		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
+		# Add evaluation metrics (for EVAL mode)
+		self.predictions = {
+			# Generate predictions (for PREDICT and EVAL mode)
+			"classes": tf.argmax(input=logits, axis=1),
+			# Add `softmax_tensor` to the graph. It is used for PREDICT and by the
+			# `logging_hook`.
+			"probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+		}
+		eval_metric_ops = {
+				"accuracy": tf.metrics.accuracy(
+					labels=self.img_classes, predictions=self.predictions["classes"])}
+		return tf.estimator.EstimatorSpec(
+				mode=tf.estimator.ModeKeys.EVAL, loss=loss, eval_metric_ops=eval_metric_ops)
 
-#https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
-num_classes = 2
-batch_size = 100
-cnnclassifier = CNNClassifier(vector_size,num_classes)
-model = cnnclassifier.get_classifier_model()
-
-train_size = int(len(train_image_features)*0.8)
-print(train_size)
-
-train_image_features = train_image_features[0:train_size]
-train_image_labels = train_image_labels[0:train_size]
-
-print(train_image_features[0].shape)
-print(len(train_image_features))
-print(len(train_image_labels))
-
-steps = (len(train_image_features)/batch_size)-1
-steps = steps if steps>0  else 1
-print(steps)
-
-# Define the input function for training
-input_fn = tf.estimator.inputs.numpy_input_fn(
-    x={'images': np.array(train_image_features)}, y=np.array(train_image_labels),
-    batch_size=100, num_epochs=10, shuffle=True)
-# Train the Model
-model.train(input_fn,steps = steps)
-print(model)
-model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
+	def __predict_model_fn(self,logits):
+		print("PRED....")
+		print(logits)
+		predictions = {
+				"classes": tf.argmax(logits, axis=1),
+				"probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+			}
+		return tf.estimator.EstimatorSpec(mode=tf.estimator.ModeKeys.PREDICT,
+										  predictions=predictions,
+										  export_outputs={
+											  'classify': tf.estimator.export.PredictOutput(predictions)
+										  })
 
 
-
-'''
-# Evaluate the Model
-# Define the input function for evaluating
-input_fn = tf.estimator.inputs.numpy_input_fn(
-    x={'images': mnist.test.images}, y=mnist.test.labels,
-    batch_size=batch_size, shuffle=False)
-# Use the Estimator 'evaluate' method
-e = model.evaluate(input_fn)
-
-
-
-'''
+	def get_classifier_model(self):
+		print("get the model...")
+		return tf.estimator.Estimator(
+			model_fn = lambda features, labels, mode, params: self.__model_fn(features, labels, mode, params), model_dir="/tmp/cnn_data")
