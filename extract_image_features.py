@@ -44,13 +44,11 @@ def prepare_image_set(path,file_name):
     return image_train_labels
 
 def serving_input_rvr_fn():
-    serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[100], name='input_tensors')
+    serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[None,vector_size,vector_size], name='input_tensors')
     receiver_tensors = {"predictor_inputs": serialized_tf_example}
     feature_spec ={"images": tf.FixedLenFeature([vector_size,vector_size], tf.float32)}
     features = tf.parse_example(serialized_tf_example, feature_spec)
     return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)
-
-
 
 #train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
 #validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
@@ -77,37 +75,35 @@ model = cnnclassifier.get_classifier_model()
 train_size = int(len(train_image_features)*0.8)
 print(train_size)
 
-train_image_features = train_image_features[0:train_size]
-train_image_labels = train_image_labels[0:train_size]
 
-print(train_image_features[0].shape)
-print(len(train_image_features))
-print(len(train_image_labels))
+def train():
+    train_image_features = train_image_features[0:train_size]
+    train_image_labels = train_image_labels[0:train_size]
 
-steps = (len(train_image_features)/batch_size)-1
-steps = steps if steps>0  else 1
-print(steps)
+    print(train_image_features[0].shape)
+    print(len(train_image_features))
+    print(len(train_image_labels))
 
-# Define the input function for training
-input_fn = tf.estimator.inputs.numpy_input_fn(
-    x={'images': np.array(train_image_features)}, y=np.array(train_image_labels),
-    batch_size=100, num_epochs=10, shuffle=True)
-# Train the Model
-model.train(input_fn,steps = steps)
-print(model)
-model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
+    steps = (len(train_image_features)/batch_size)-1
+    steps = steps if steps>0  else 1
+    print(steps)
 
-
-
-'''
-# Evaluate the Model
-# Define the input function for evaluating
-input_fn = tf.estimator.inputs.numpy_input_fn(
-    x={'images': mnist.test.images}, y=mnist.test.labels,
-    batch_size=batch_size, shuffle=False)
-# Use the Estimator 'evaluate' method
-e = model.evaluate(input_fn)
+    # Define the input function for training
+    input_fn = tf.estimator.inputs.numpy_input_fn(
+        x={'images': np.array(train_image_features)}, y=np.array(train_image_labels),
+        batch_size=100, num_epochs=10, shuffle=True)
+    # Train the Model
+    model.train(input_fn,steps = steps)
+    print(model)
+    model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
 
 
+def predict():
+   val_image_features = train_image_features[train_size:][0:100]
+   val_image_labels = train_image_labels[train_size:]
+   predictor = tf.contrib.predictor.from_saved_model("test_model/1545636617")
+   output_dict = predictor({"predictor_inputs": np.array(val_image_features)})
+   print(output_dict)
 
-'''
+predict()
+
