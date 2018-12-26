@@ -6,6 +6,9 @@ import numpy as np
 from cnn_classifier import *
 
 vector_size=200
+num_classes = 2
+batch_size = 100
+
 # Feature extractor
 def extract_features(image_path, vector_size=200):
     image = io.imread(image_path, as_gray=True)
@@ -44,7 +47,7 @@ def prepare_image_set(path,file_name):
     return image_train_labels
 
 def serving_input_rvr_fn():
-    serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[None], name='input_tensors')
+    serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[batch_size], name='input_tensors')
     receiver_tensors = {"predictor_inputs": serialized_tf_example}
     feature_spec ={"images": tf.FixedLenFeature([vector_size,vector_size], tf.float32)}
     features = tf.parse_example(serialized_tf_example, feature_spec)
@@ -67,8 +70,6 @@ train_image_labels_glb = indices_to_one_hot(train_image_labels_glb)
 print(train_image_labels_glb[0])
 
 #https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
-num_classes = 2
-batch_size = 100
 cnnclassifier = CNNClassifier(vector_size,num_classes)
 model = cnnclassifier.get_classifier_model()
 
@@ -122,13 +123,18 @@ def evaluate():
 
 
 def predict():
-   val_image_features = train_image_features[train_size:][0:100]
-   val_image_labels = train_image_labels[train_size:]
-   predictor = tf.contrib.predictor.from_saved_model("test_model/1545636617")
-   output_dict = predictor({"predictor_inputs": np.array(val_image_features)})
+   pred_image_features = train_image_features_glb[train_size:][0:3]
+   #pred_image_features = np.array(pred_image_features)
+   print("3")
+   print(len(pred_image_features))
+   print(pred_image_features[0].shape)
+   model_input = tf.train.Example(features=tf.train.Features(feature={"images":tf.train.Feature(float_list=tf.train.FloatList(value=pred_image_features[0]))}))
+   model_input = model_input.SerializeToString()
+   predictor = tf.contrib.predictor.from_saved_model("test_model/1545839240")
+   output_dict = predictor({"predictor_inputs": [model_input]})
    print(output_dict)
 
 
-train()
-evaluate()
+#train()
+#evaluate()
 predict()
