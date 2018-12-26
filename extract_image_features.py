@@ -44,7 +44,7 @@ def prepare_image_set(path,file_name):
     return image_train_labels
 
 def serving_input_rvr_fn():
-    serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[None,vector_size,vector_size], name='input_tensors')
+    serialized_tf_example = tf.placeholder(dtype=tf.string, shape=[None], name='input_tensors')
     receiver_tensors = {"predictor_inputs": serialized_tf_example}
     feature_spec ={"images": tf.FixedLenFeature([vector_size,vector_size], tf.float32)}
     features = tf.parse_example(serialized_tf_example, feature_spec)
@@ -53,18 +53,18 @@ def serving_input_rvr_fn():
 #train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
 #validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
 print("extract.......--->")
-train_image_features = []
-train_image_labels = []
+train_image_features_glb = []
+train_image_labels_glb = []
 tot = 0
 for i in range(1,9):
     train_records = pickle.load(open("train_dataset"+str(i)+".pkl", 'rb'))
     for record in train_records:
-        train_image_features.append(np.array(record[0]))
-        train_image_labels.append(int(record[1]))
+        train_image_features_glb.append(np.array(record[0]))
+        train_image_labels_glb.append(int(record[1]))
 
 
-train_image_labels = indices_to_one_hot(train_image_labels)
-print(train_image_labels[0])
+train_image_labels_glb = indices_to_one_hot(train_image_labels_glb)
+print(train_image_labels_glb[0])
 
 #https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
 num_classes = 2
@@ -72,15 +72,20 @@ batch_size = 100
 cnnclassifier = CNNClassifier(vector_size,num_classes)
 model = cnnclassifier.get_classifier_model()
 
-train_size = int(len(train_image_features)*0.8)
+#train_size = int(len(train_image_features)*0.8)
+train_size = 100
 print(train_size)
 
 
-def train():
-    train_image_features = train_image_features[0:train_size]
-    train_image_labels = train_image_labels[0:train_size]
 
-    print(train_image_features[0].shape)
+
+def train():
+    train_image_features = train_image_features_glb[0:train_size]
+    train_image_labels = train_image_labels_glb[0:train_size]
+    train_image_labels = np.array(train_image_labels)
+    train_image_labels = np.reshape(train_image_labels,(-1,2))
+    print(train_image_labels.shape)
+    print("shapes")
     print(len(train_image_features))
     print(len(train_image_labels))
 
@@ -90,11 +95,29 @@ def train():
 
     # Define the input function for training
     input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={'images': np.array(train_image_features)}, y=np.array(train_image_labels),
-        batch_size=100, num_epochs=10, shuffle=True)
+        x={'images': np.array(train_image_features)}, y=train_image_labels,
+        batch_size=100, num_epochs=10, shuffle=False)
     # Train the Model
     model.train(input_fn,steps = steps)
     print(model)
+
+def evaluate():
+    val_image_features = train_image_features_glb[train_size:]
+    val_image_labels = train_image_labels_glb[train_size:]
+    val_image_labels = np.array(val_image_labels)
+    val_image_labels = np.reshape(val_image_labels, (-1, 2))
+    input_fn = tf.estimator.inputs.numpy_input_fn(
+        x={'images': np.array(val_image_features)}, y=np.array(val_image_labels),
+        batch_size=50, num_epochs=10, shuffle=True)
+
+    steps = (len(val_image_features) / batch_size) - 1
+    steps = steps if steps > 0  else 1
+
+    # Train the Model
+    evaluate_result = model.evaluate(input_fn, steps=steps)
+    print ("Evaluation results")
+    for key in evaluate_result:
+        print("   {}, was: {}".format(key, evaluate_result[key]))
     model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
 
 
@@ -105,5 +128,7 @@ def predict():
    output_dict = predictor({"predictor_inputs": np.array(val_image_features)})
    print(output_dict)
 
-predict()
 
+train()
+evaluate()
+predict()

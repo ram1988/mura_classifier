@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 class CNNClassifier:
 
@@ -50,13 +51,19 @@ class CNNClassifier:
 		if mode == tf.estimator.ModeKeys.TRAIN:
 			return self.__train_model_fn(labels, mode, params, logits)
 		elif mode == tf.estimator.ModeKeys.EVAL:
-			return self.__eval_model_fn(logits)
+			return self.__eval_model_fn(labels,logits)
 		else:
 			return self.__predict_model_fn(logits)
 
 	def __train_model_fn(self,image_labels,mode,params,logits):
 		print(mode)
 		print("training....")
+		print(image_labels)
+		image_labels = tf.cast(image_labels, tf.float32)
+		image_labels = tf.reshape(image_labels,[-1,2])
+		print(image_labels.shape)
+		print(tf.size(image_labels))
+
 		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
 		# Configure the Training Op (for TRAIN mode)
 		optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
@@ -69,7 +76,7 @@ class CNNClassifier:
 	def __eval_model_fn(self,image_labels,logits):
 		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
 		# Add evaluation metrics (for EVAL mode)
-		self.predictions = {
+		predictions = {
 			# Generate predictions (for PREDICT and EVAL mode)
 			"classes": tf.argmax(input=logits, axis=1),
 			# Add `softmax_tensor` to the graph. It is used for PREDICT and by the
@@ -78,7 +85,7 @@ class CNNClassifier:
 		}
 		eval_metric_ops = {
 				"accuracy": tf.metrics.accuracy(
-					labels=self.img_classes, predictions=self.predictions["classes"])}
+					labels=tf.argmax(input=image_labels, axis=1), predictions=predictions["classes"])}
 		return tf.estimator.EstimatorSpec(
 				mode=tf.estimator.ModeKeys.EVAL, loss=loss, eval_metric_ops=eval_metric_ops)
 
