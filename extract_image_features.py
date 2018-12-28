@@ -57,7 +57,9 @@ def serving_input_rvr_fn():
 #validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
 print("extract.......--->")
 train_image_features_glb = []
+val_image_features_glb = []
 train_image_labels_glb = []
+val_image_labels_glb = []
 tot = 0
 for i in range(1,9):
     train_records = pickle.load(open("train_dataset"+str(i)+".pkl", 'rb'))
@@ -65,8 +67,14 @@ for i in range(1,9):
         train_image_features_glb.append(np.array(record[0]))
         train_image_labels_glb.append(int(record[1]))
 
+for i in range(1,3):
+    val_records = pickle.load(open("validation_dataset"+str(i)+".pkl", 'rb'))
+    for record in val_records:
+        val_image_features_glb.append(np.array(record[0]))
+        val_image_labels_glb.append(int(record[1]))
 
 train_image_labels_glb = indices_to_one_hot(train_image_labels_glb)
+val_image_labels_glb = indices_to_one_hot(val_image_labels_glb)
 print(train_image_labels_glb[0])
 
 #https://github.com/aymericdamien/TensorFlow-Examples/blob/master/examples/3_NeuralNetworks/convolutional_network.py
@@ -81,8 +89,8 @@ print(train_size)
 
 
 def train():
-    train_image_features = train_image_features_glb[0:train_size]
-    train_image_labels = train_image_labels_glb[0:train_size]
+    train_image_features = train_image_features_glb
+    train_image_labels = train_image_labels_glb
     train_image_labels = np.array(train_image_labels)
     train_image_labels = np.reshape(train_image_labels,(-1,2))
     print(train_image_labels.shape)
@@ -103,8 +111,8 @@ def train():
     print(model)
 
 def evaluate():
-    val_image_features = train_image_features_glb[train_size:]
-    val_image_labels = train_image_labels_glb[train_size:]
+    val_image_features = val_image_features_glb
+    val_image_labels = val_image_labels_glb
     val_image_labels = np.array(val_image_labels)
     val_image_labels = np.reshape(val_image_labels, (-1, 2))
     input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -135,6 +143,6 @@ def predict():
    print(output_dict)
 
 
-#train()
-#evaluate()
-predict()
+train()
+evaluate()
+#predict()
