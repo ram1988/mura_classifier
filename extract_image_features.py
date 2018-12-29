@@ -116,7 +116,7 @@ def evaluate():
     val_image_labels = np.array(val_image_labels)
     val_image_labels = np.reshape(val_image_labels, (-1, 2))
     input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={'images': np.array(val_image_features)}, y=np.array(val_image_labels),
+        x={'images': np.array(val_image_features)}, y=val_image_labels,
         batch_size=50, num_epochs=10, shuffle=True)
 
     steps = (len(val_image_features) / batch_size) - 1
