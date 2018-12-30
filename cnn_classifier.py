@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+#https://towardsdatascience.com/first-contact-with-tensorflow-estimator-69a5e072998d
 class CNNClassifier:
 
 	def __init__(self,vector_size, img_classes):
@@ -38,6 +39,8 @@ class CNNClassifier:
 		dropout = tf.layers.dropout(
 			inputs=dense, rate=0.4, training=True)
 
+		print("return model net")
+
 		# Logits Layer
 		return tf.layers.dense(inputs=dropout, units=self.img_classes)
 
@@ -46,12 +49,15 @@ class CNNClassifier:
 	def __model_fn(self,features, labels, mode, params):
 		image_features = features["images"]
 		img_features = tf.reshape(image_features, [-1, self.vector_size, self.vector_size, 1])
-		logits = self.define_model_net(img_features)
+		self.logits = self.define_model_net(img_features)
 
 		if mode == tf.estimator.ModeKeys.TRAIN:
-			return self.__train_model_fn(labels, mode, params, logits)
+			return self.__train_model_fn(labels, mode, params, self.logits)
 		elif mode == tf.estimator.ModeKeys.EVAL:
-			return self.__eval_model_fn(labels,logits)
+			print("evaluate...111")
+			obj = self.__eval_model_fn(labels,self.logits)
+			print("val ends")
+			return obj
 		else:
 			return self.__predict_model_fn(logits)
 
@@ -60,7 +66,6 @@ class CNNClassifier:
 		print("training....")
 		print(image_labels)
 		image_labels = tf.cast(image_labels, tf.float32)
-		image_labels = tf.reshape(image_labels,[-1,2])
 		print(image_labels.shape)
 		print(tf.size(image_labels))
 
@@ -74,6 +79,9 @@ class CNNClassifier:
 
 
 	def __eval_model_fn(self,image_labels,logits):
+		image_labels = tf.cast(image_labels, tf.float32)
+		print("eval model...")
+		print(logits)
 		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
 		# Add evaluation metrics (for EVAL mode)
 		predictions = {
@@ -83,9 +91,11 @@ class CNNClassifier:
 			# `logging_hook`.
 			"probabilities": tf.nn.softmax(logits, name="softmax_tensor")
 		}
+		print("predictions....")
 		eval_metric_ops = {
 				"accuracy": tf.metrics.accuracy(
 					labels=tf.argmax(input=image_labels, axis=1), predictions=predictions["classes"])}
+		print(image_labels)
 		return tf.estimator.EstimatorSpec(
 				mode=tf.estimator.ModeKeys.EVAL, loss=loss, eval_metric_ops=eval_metric_ops)
 

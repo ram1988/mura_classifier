@@ -89,8 +89,8 @@ print(train_size)
 
 
 def train():
-    train_image_features = train_image_features_glb
-    train_image_labels = train_image_labels_glb
+    train_image_features = train_image_features_glb[0:100]
+    train_image_labels = train_image_labels_glb[0:100]
     train_image_labels = np.array(train_image_labels)
     train_image_labels = np.reshape(train_image_labels,(-1,2))
     print(train_image_labels.shape)
@@ -112,12 +112,14 @@ def train():
 
 def evaluate():
     val_image_features = val_image_features_glb
+    print("evaluate...")
+    print(len(val_image_features))
     val_image_labels = val_image_labels_glb
     val_image_labels = np.array(val_image_labels)
     val_image_labels = np.reshape(val_image_labels, (-1, 2))
     input_fn = tf.estimator.inputs.numpy_input_fn(
         x={'images': np.array(val_image_features)}, y=val_image_labels,
-        batch_size=50, num_epochs=10, shuffle=True)
+        batch_size=50,shuffle=False)
 
     steps = (len(val_image_features) / batch_size) - 1
     steps = steps if steps > 0  else 1
@@ -127,7 +129,7 @@ def evaluate():
     print ("Evaluation results")
     for key in evaluate_result:
         print("   {}, was: {}".format(key, evaluate_result[key]))
-    model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
+    #model.export_savedmodel("test_model",serving_input_receiver_fn=serving_input_rvr_fn)
 
 
 def predict():
