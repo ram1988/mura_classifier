@@ -50,18 +50,24 @@ class CNNClassifier:
 		image_features = features["images"]
 		img_features = tf.reshape(image_features, [-1, self.vector_size, self.vector_size, 1])
 		self.logits = self.define_model_net(img_features)
+		loss = tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=self.logits)
+		optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+		train_op = optimizer.minimize(
+			loss=loss,
+			global_step=tf.train.get_or_create_global_step())
+
 
 		if mode == tf.estimator.ModeKeys.TRAIN:
-			return self.__train_model_fn(labels, mode, params, self.logits)
+			return self.__train_model_fn(labels, mode, params, self.logits, loss, train_op)
 		elif mode == tf.estimator.ModeKeys.EVAL:
 			print("evaluate...111")
-			obj = self.__eval_model_fn(labels,self.logits)
+			obj = self.__eval_model_fn(labels,self.logits,loss)
 			print("val ends")
 			return obj
 		else:
 			return self.__predict_model_fn(logits)
 
-	def __train_model_fn(self,image_labels,mode,params,logits):
+	def __train_model_fn(self,image_labels,mode,params,logits,loss,train_op):
 		print(mode)
 		print("training....")
 		print(image_labels)
@@ -69,20 +75,17 @@ class CNNClassifier:
 		print(image_labels.shape)
 		print(tf.size(image_labels))
 
-		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
+		#loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
 		# Configure the Training Op (for TRAIN mode)
-		optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-		train_op = optimizer.minimize(
-				loss=loss,
-				global_step=tf.train.get_or_create_global_step())
+
 		return tf.estimator.EstimatorSpec(mode=tf.estimator.ModeKeys.TRAIN, loss=loss, train_op=train_op)
 
 
-	def __eval_model_fn(self,image_labels,logits):
+	def __eval_model_fn(self,image_labels,logits,loss):
 		image_labels = tf.cast(image_labels, tf.float32)
 		print("eval model...")
 		print(logits)
-		loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
+		#loss = tf.losses.softmax_cross_entropy(onehot_labels=image_labels, logits=logits)
 		# Add evaluation metrics (for EVAL mode)
 		predictions = {
 			# Generate predictions (for PREDICT and EVAL mode)
@@ -116,4 +119,4 @@ class CNNClassifier:
 	def get_classifier_model(self):
 		print("get the model...")
 		return tf.estimator.Estimator(
-			model_fn = lambda features, labels, mode, params: self.__model_fn(features, labels, mode, params), model_dir="/tmp/cnn_data")
+			model_fn = self.__model_fn, model_dir="/tmp/cnn_data")

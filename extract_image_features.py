@@ -87,6 +87,24 @@ print(train_size)
 
 
 
+#https://medium.com/@vincentteyssier/tensorflow-estimator-tutorial-on-real-life-data-aa0fca773bb
+#change the logic accordingly
+def train_input_fn(features, labels, batch_size, repeat_count):
+    dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
+    dataset = dataset.shuffle(256).repeat(repeat_count).batch(batch_size)
+    return dataset
+
+# input_fn for evaluation and predicitions (labels can be null)
+def eval_input_fn(features, labels, batch_size):
+    features=dict(features)
+    if labels is None:
+        inputs = features
+    else:
+        inputs = (features, labels)
+    dataset = tf.data.Dataset.from_tensor_slices(inputs)
+    assert batch_size is not None, "batch_size must not be None"
+    dataset = dataset.batch(batch_size)
+    return dataset
 
 def train():
     train_image_features = train_image_features_glb[0:100]
