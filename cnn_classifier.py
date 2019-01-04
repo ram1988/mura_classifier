@@ -47,7 +47,8 @@ class CNNClassifier:
 
 
 	def __model_fn(self,features, labels, mode, params):
-		image_features = features["images"]
+		image_features = features["image"]
+		#image_features = features
 		img_features = tf.reshape(image_features, [-1, self.vector_size, self.vector_size, 1])
 		self.logits = self.define_model_net(img_features)
 		loss = tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=self.logits)

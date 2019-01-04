@@ -4,6 +4,7 @@ import os, pickle
 import tensorflow as tf
 import numpy as np
 from cnn_classifier import *
+import itertools
 
 vector_size=200
 num_classes = 2
@@ -86,24 +87,38 @@ train_size = 100
 print(train_size)
 
 
+def parse_feature_label(feat,label):
+    return {"image": feat, "label": label}
 
 #https://medium.com/@vincentteyssier/tensorflow-estimator-tutorial-on-real-life-data-aa0fca773bb
+#https://github.com/marco-willi/tf-estimator-cnn/blob/master/estimator.py
 #change the logic accordingly
 def train_input_fn(features, labels, batch_size, repeat_count):
-    dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
-    dataset = dataset.shuffle(256).repeat(repeat_count).batch(batch_size)
+    print("train labels.....")
+    print(len(labels))
+    print(features[1].shape)
+    dataset = tf.data.Dataset.from_tensor_slices((features, labels))
+    dataset = dataset.shuffle(256)
+    dataset = dataset.apply(
+        tf.contrib.data.map_and_batch(
+            lambda x, y: parse_feature_label(x, y),
+            batch_size=100,
+            num_parallel_batches=1,
+            drop_remainder=False))
+    dataset = dataset.repeat(1).batch(batch_size)
     return dataset
 
 # input_fn for evaluation and predicitions (labels can be null)
 def eval_input_fn(features, labels, batch_size):
-    features=dict(features)
-    if labels is None:
-        inputs = features
-    else:
-        inputs = (features, labels)
-    dataset = tf.data.Dataset.from_tensor_slices(inputs)
-    assert batch_size is not None, "batch_size must not be None"
-    dataset = dataset.batch(batch_size)
+    dataset = tf.data.Dataset.from_tensor_slices((features, labels))
+    dataset = dataset.shuffle(256)
+    dataset = dataset.apply(
+        tf.contrib.data.map_and_batch(
+            lambda x, y: parse_feature_label(x, y),
+            batch_size=100,
+            num_parallel_batches=1,
+            drop_remainder=False))
+    dataset = dataset.repeat(1).batch(batch_size)
     return dataset
 
 def train():
@@ -125,7 +140,7 @@ def train():
         x={'images': np.array(train_image_features)}, y=train_image_labels,
         batch_size=100, num_epochs=10, shuffle=False)
     # Train the Model
-    model.train(input_fn,steps = steps)
+    model.train(input_fn=lambda:train_input_fn(train_image_features,train_image_labels,100,20),steps = steps)
     print(model)
 
 def evaluate():
@@ -143,7 +158,7 @@ def evaluate():
     steps = steps if steps > 0  else 1
 
     # Train the Model
-    evaluate_result = model.evaluate(input_fn, steps=steps)
+    evaluate_result = model.evaluate(input_fn=lambda:eval_input_fn(val_image_features,val_image_labels,100), steps=steps)
     print ("Evaluation results")
     for key in evaluate_result:
         print("   {}, was: {}".format(key, evaluate_result[key]))
