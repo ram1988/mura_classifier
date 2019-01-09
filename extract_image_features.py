@@ -4,6 +4,7 @@ import os, pickle
 import tensorflow as tf
 import numpy as np
 from cnn_classifier import *
+import scipy
 import itertools
 
 vector_size=200
@@ -56,6 +57,7 @@ def serving_input_rvr_fn():
 
 #train_dataset = prepare_image_set("MURA-v1.1/train_labeled_studies.csv","train_dataset")
 #validation_dataset = prepare_image_set("MURA-v1.1/valid_labeled_studies.csv","validation_dataset")
+'''
 print("extract.......--->")
 train_image_features_glb = []
 val_image_features_glb = []
@@ -85,48 +87,84 @@ model = cnnclassifier.get_classifier_model()
 #train_size = int(len(train_image_features)*0.8)
 train_size = 100
 print(train_size)
+'''
+cnnclassifier = CNNClassifier(vector_size,num_classes)
+model = cnnclassifier.get_classifier_model()
 
 
-def parse_feature_label(feat,label):
-    return {"image": feat, "label": label}
+def parse_feature_label(filename,label):
+    print("read image")
+    print(filename)
+    image_string = tf.read_file(filename)
+    image_decoded = tf.image.decode_jpeg(image_string)
+    image_resized = tf.image.resize_images(image_decoded, [vector_size, vector_size])
+    print(image_resized.shape)
+    print(label.shape)
+    return image_resized,label
+
+def prepare_image_files(path):
+    print("prepare///")
+    image_records = []
+    image_labels = []
+    i = 0
+    with open(path) as train_labels:
+        csv_reader = csv.reader(train_labels)
+        for row in csv_reader:
+            image_files = os.listdir(row[0])
+            label = int(row[1])
+            for image in image_files:
+                image_file = row[0]+image
+                image_records.append(image_file)
+                image_labels.append(label)
+                i = i+1
+                print(i)
+    print(len(image_records))
+    print(image_labels)
+
+    return image_records,image_labels
+
+
 
 #https://medium.com/@vincentteyssier/tensorflow-estimator-tutorial-on-real-life-data-aa0fca773bb
 #https://github.com/marco-willi/tf-estimator-cnn/blob/master/estimator.py
+#https://www.tensorflow.org/guide/datasets#consuming_numpy_arrays
 #change the logic accordingly
 def train_input_fn(features, labels, batch_size, repeat_count):
     print("train labels.....")
-    print(len(labels))
-    print(features[1].shape)
+    print(labels)
     dataset = tf.data.Dataset.from_tensor_slices((features, labels))
-    dataset = dataset.shuffle(256)
+    dataset = dataset.shuffle(buffer_size=300)
     dataset = dataset.apply(
         tf.contrib.data.map_and_batch(
             lambda x, y: parse_feature_label(x, y),
-            batch_size=100,
+            batch_size=1,
             num_parallel_batches=1,
             drop_remainder=False))
-    dataset = dataset.repeat(1).batch(batch_size)
+    dataset = dataset.repeat(1).prefetch(buffer_size=tf.contrib.data.AUTOTUNE)
     return dataset
 
 # input_fn for evaluation and predicitions (labels can be null)
 def eval_input_fn(features, labels, batch_size):
+    print("eval labels.....")
+    print(labels)
     dataset = tf.data.Dataset.from_tensor_slices((features, labels))
-    dataset = dataset.shuffle(256)
+    dataset = dataset.shuffle(buffer_size=300)
     dataset = dataset.apply(
         tf.contrib.data.map_and_batch(
             lambda x, y: parse_feature_label(x, y),
-            batch_size=100,
+            batch_size=1,
             num_parallel_batches=1,
             drop_remainder=False))
-    dataset = dataset.repeat(1).batch(batch_size)
+    dataset = dataset.repeat(1).prefetch(buffer_size=tf.contrib.data.AUTOTUNE)
     return dataset
 
-def train():
-    train_image_features = train_image_features_glb[0:100]
-    train_image_labels = train_image_labels_glb[0:100]
+def train(train_set,train_labels):
+    train_image_features = train_set[0:100]
+    train_image_labels = train_labels[0:100]
+    print(train_image_labels)
     train_image_labels = np.array(train_image_labels)
+    train_image_labels = indices_to_one_hot(train_image_labels)
     train_image_labels = np.reshape(train_image_labels,(-1,2))
-    print(train_image_labels.shape)
     print("shapes")
     print(len(train_image_features))
     print(len(train_image_labels))
@@ -135,24 +173,23 @@ def train():
     steps = steps if steps>0  else 1
     print(steps)
 
-    # Define the input function for training
-    input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={'images': np.array(train_image_features)}, y=train_image_labels,
-        batch_size=100, num_epochs=10, shuffle=False)
     # Train the Model
+    print("dddd")
+    print(train_image_features)
     model.train(input_fn=lambda:train_input_fn(train_image_features,train_image_labels,100,20),steps = steps)
     print(model)
 
-def evaluate():
-    val_image_features = val_image_features_glb
+def evaluate(val_set,val_labels):
+    val_image_features = val_set
+    val_image_labels = val_labels
     print("evaluate...")
     print(len(val_image_features))
-    val_image_labels = val_image_labels_glb
     val_image_labels = np.array(val_image_labels)
+    val_image_labels = indices_to_one_hot(val_image_labels)
     val_image_labels = np.reshape(val_image_labels, (-1, 2))
-    input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={'images': np.array(val_image_features)}, y=val_image_labels,
-        batch_size=50,shuffle=False)
+
+    #val_image_labels = np.array(val_image_labels)
+    #val_image_labels = np.reshape(val_image_labels, (-1, 2))
 
     steps = (len(val_image_features) / batch_size) - 1
     steps = steps if steps > 0  else 1
@@ -177,7 +214,10 @@ def predict():
    output_dict = predictor({"predictor_inputs": [model_input]})
    print(output_dict)
 
+print("mura")
+train_set,train_labels = prepare_image_files("MURA-v1.1/train_labeled_studies.csv")
+val_set,val_labels = prepare_image_files("MURA-v1.1/valid_labeled_studies.csv")
 
-train()
-evaluate()
+train(train_set,train_labels)
+evaluate(val_set,val_labels)
 #predict()
