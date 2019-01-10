@@ -103,7 +103,6 @@ def parse_feature_label(filename,label):
     return image_resized,label
 
 def prepare_image_files(path):
-    print("prepare///")
     image_records = []
     image_labels = []
     i = 0
@@ -159,9 +158,8 @@ def eval_input_fn(features, labels, batch_size):
     return dataset
 
 def train(train_set,train_labels):
-    train_image_features = train_set[0:100]
-    train_image_labels = train_labels[0:100]
-    print(train_image_labels)
+    train_image_features = train_set
+    train_image_labels = train_labels
     train_image_labels = np.array(train_image_labels)
     train_image_labels = indices_to_one_hot(train_image_labels)
     train_image_labels = np.reshape(train_image_labels,(-1,2))
@@ -171,11 +169,9 @@ def train(train_set,train_labels):
 
     steps = (len(train_image_features)/batch_size)-1
     steps = steps if steps>0  else 1
-    print(steps)
 
     # Train the Model
     print("dddd")
-    print(train_image_features)
     model.train(input_fn=lambda:train_input_fn(train_image_features,train_image_labels,100,20),steps = steps)
     print(model)
 
@@ -214,7 +210,6 @@ def predict():
    output_dict = predictor({"predictor_inputs": [model_input]})
    print(output_dict)
 
-print("mura")
 train_set,train_labels = prepare_image_files("MURA-v1.1/train_labeled_studies.csv")
 val_set,val_labels = prepare_image_files("MURA-v1.1/valid_labeled_studies.csv")
 
